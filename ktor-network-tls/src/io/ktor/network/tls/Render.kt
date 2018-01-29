@@ -1,6 +1,5 @@
 package io.ktor.network.tls
 
-import kotlinx.coroutines.experimental.io.packet.*
 import kotlinx.io.core.*
 import kotlinx.io.core.ByteReadPacket
 import java.security.*
@@ -94,7 +93,7 @@ fun BytePacketBuilder.writeChangeCipherSpec(header: TLSHeader) {
     writeByte(1)
 }
 
-internal fun finished(messages: List<ByteReadPacket>, baseHash: String, secretKey: SecretKeySpec): ByteReadPacket {
+internal suspend fun finished(messages: List<ByteReadPacket>, baseHash: String, secretKey: SecretKeySpec): ByteReadPacket {
     val digestBytes = hashMessages(messages, baseHash)
     return finished(digestBytes, secretKey)
 }

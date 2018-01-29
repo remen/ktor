@@ -13,7 +13,13 @@ import javax.crypto.spec.*
 import javax.net.ssl.*
 import kotlin.coroutines.experimental.*
 
-internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWriteChannel, val trustManager: X509TrustManager? = null, val serverName: String? = null, val coroutineContext: CoroutineContext) : AReadable, AWritable {
+internal class TLSClientSession(
+        val input: ByteReadChannel,
+        val output: ByteWriteChannel,
+        val trustManager: X509TrustManager? = null,
+        val serverName: String? = null,
+        val coroutineContext: CoroutineContext
+) : AReadable, AWritable {
     private var readerJob: ReaderJob? = null
     private var writerJob: WriterJob? = null
 
@@ -49,7 +55,7 @@ internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWrit
         initClientRandom()
         sendClientHello()
 
-        loop@while (true) {
+        loop@ while (true) {
             if (!readTLSHeader()) throw TLSException("Handshake failed: premature end of stream")
             val packet = readPacket()
 
@@ -74,9 +80,7 @@ internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWrit
                     changeCipherSpec(flag)
                     break@loop
                 }
-                else -> {
-                    throw TLSException("Unsupported TLS record type ${header.type}")
-                }
+                else -> throw TLSException("Unsupported TLS record type ${header.type}")
             }
         }
     }
@@ -131,7 +135,7 @@ internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWrit
                 else -> throw TLSException("Unexpected record ${header.type} (${header.length} bytes)")
             }
 
-            seq ++
+            seq++
         }
     }
 
@@ -299,29 +303,32 @@ internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWrit
     }
 
     private suspend fun sendClientHello() {
-        handshakeHeader.type = TLSHandshakeType.ClientHello
-        handshakeHeader.suitesCount = 1
-//            handshake.suites[0] = 0x009d
-        handshakeHeader.suites[0] = 0x009c
-        handshakeHeader.random = clientRandom.copyOf()
+        with(handshakeHeader) {
+            type = TLSHandshakeType.ClientHello
+            suitesCount = 1
+            suites[0] = TLS_RSA_WITH_AES_128_GCM_SHA256.code
+            random = clientRandom.copyOf()
+        }
+
         handshakeHeader.serverName = serverName
 
         val helloBody = WritePacket()
         helloBody.writeTLSClientHello(handshakeHeader)
 
-        val (hello, copy) = buildPacket {
+        val packet = buildPacket {
             handshakeHeader.type = TLSHandshakeType.ClientHello
             handshakeHeader.length = helloBody.size
             writeTLSHandshake(handshakeHeader)
             writePacket(helloBody.build())
-        }.duplicate()
+        }
 
-        packetForHashing.writePacket(copy)
+        packetForHashing.writePacket(packet.copy())
+
         output.writePacket {
             header.type = TLSRecordType.Handshake
-            header.length = hello.remaining
+            header.length = packet.remaining
             writeTLSHeader(header)
-            writePacket(hello)
+            writePacket(packet)
         }
         output.flush()
     }

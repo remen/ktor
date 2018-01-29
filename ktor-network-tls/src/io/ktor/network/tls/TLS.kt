@@ -1,14 +1,16 @@
 package io.ktor.network.tls
 
 import io.ktor.network.sockets.*
-import kotlinx.coroutines.experimental.*
+import io.ktor.network.util.*
 import kotlinx.coroutines.experimental.io.*
 import javax.net.ssl.*
 import kotlin.coroutines.experimental.*
 
-suspend fun ReadWriteSocket.tls(trustManager: X509TrustManager? = null,
-                                serverName: String? = null,
-                                coroutineContext: CoroutineContext = CommonPool): ReadWriteSocket {
+suspend fun ReadWriteSocket.tls(
+        trustManager: X509TrustManager? = null,
+        serverName: String? = null,
+        coroutineContext: CoroutineContext = ioCoroutineDispatcher
+): ReadWriteSocket {
     val session = TLSClientSession(openReadChannel(), openWriteChannel(), trustManager, serverName, coroutineContext)
     val socket = ReadWriteImpl(session, this)
 
@@ -23,9 +25,11 @@ suspend fun ReadWriteSocket.tls(trustManager: X509TrustManager? = null,
     return socket
 }
 
-suspend fun Socket.tls(trustManager: X509TrustManager? = null,
-                   serverName: String? = null,
-                   coroutineContext: CoroutineContext = CommonPool): Socket {
+suspend fun Socket.tls(
+        trustManager: X509TrustManager? = null,
+        serverName: String? = null,
+        coroutineContext: CoroutineContext = ioCoroutineDispatcher
+): Socket {
     val session = TLSClientSession(openReadChannel(), openWriteChannel(), trustManager, serverName, coroutineContext)
     val socket = TLSSocketImpl(session, this)
 

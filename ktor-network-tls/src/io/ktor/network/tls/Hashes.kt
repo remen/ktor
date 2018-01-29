@@ -9,41 +9,40 @@ import javax.crypto.*
 import kotlin.coroutines.experimental.*
 
 
-internal fun hashMessages(messages: List<ByteReadPacket>, baseHash: String): ByteArray {
-    return runBlocking {
-        val md = MessageDigest.getInstance(baseHash)
-        val digestBytes = ByteArray(md.digestLength)
-        val digest = digest(md, CommonPool, digestBytes)
-        for (m in messages) {
-            digest.channel.writePacket(m)
-        }
-        digest.channel.close()
-        digest.join()
-        digestBytes
+internal suspend fun hashMessages(messages: List<ByteReadPacket>, baseHash: String): ByteArray {
+    val md = MessageDigest.getInstance(baseHash)
+    val digestBytes = ByteArray(md.digestLength)
+    val digest = digest(md, CommonPool, digestBytes)
+    for (m in messages) {
+        digest.channel.writePacket(m)
     }
+    digest.channel.close()
+    digest.join()
+    return digestBytes
 }
 
-fun digest(d: MessageDigest, coroutineContext: CoroutineContext, result: ByteArray): ReaderJob {
-    return reader(coroutineContext) {
-        d.reset()
-        val buffer = DefaultByteBufferPool.borrow()
-        try {
-            while (true) {
-                buffer.clear()
-                val rc = channel.readAvailable(buffer)
-                if (rc == -1) break
-                buffer.flip()
-                d.update(buffer)
+fun digest(digest: MessageDigest, coroutineContext: CoroutineContext, result: ByteArray): ReaderJob =
+        reader(coroutineContext) {
+            digest.reset()
+            val buffer = DefaultByteBufferPool.borrow()
+            try {
+                while (true) {
+                    buffer.clear()
+                    val rc = channel.readAvailable(buffer)
+                    if (rc == -1) break
+                    buffer.flip()
+                    digest.update(buffer)
+                }
+
+                digest.digest(result, 0, digest.digestLength)
+            } finally {
+                DefaultByteBufferPool.recycle(buffer)
             }
-
-            d.digest(result, 0, d.digestLength)
-        } finally {
-            DefaultByteBufferPool.recycle(buffer)
         }
-    }
-}
 
-internal fun PRF(secret: SecretKey, label: ByteArray, seed: ByteArray, requiredLength: Int = 12) = P_hash(label + seed, Mac.getInstance(secret.algorithm), secret, requiredLength)
+internal fun PRF(secret: SecretKey, label: ByteArray, seed: ByteArray, requiredLength: Int = 12) = P_hash(
+        label + seed, Mac.getInstance(secret.algorithm), secret, requiredLength
+)
 
 private fun P_hash(seed: ByteArray, mac: Mac, secretKey: SecretKey, requiredLength: Int = 12): ByteArray {
     require(requiredLength >= 12)

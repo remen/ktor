@@ -14,6 +14,7 @@ enum class TLSHandshakeType(val code: Int) {
 
     companion object {
         private val byCode = Array(256) { idx -> values().firstOrNull { it.code == idx } }
+
         fun byCode(code: Int): TLSHandshakeType = when (code) {
             in 0..0xff -> byCode[code]
             else -> null
