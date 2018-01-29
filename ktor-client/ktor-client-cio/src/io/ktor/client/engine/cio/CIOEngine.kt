@@ -19,22 +19,26 @@ class CIOEngine(private val config: CIOEngineConfig) : HttpClientEngine {
             CIOHttpRequest(call, this, builder.build())
 
     internal suspend fun executeRequest(request: CIOHttpRequest, content: OutgoingContent): CIOHttpResponse {
-        if (closed.get()) throw ClientClosedException()
+        while (true) {
+            if (closed.get()) throw ClientClosedException()
 
-        val endpoint = with(request.url) {
-            val address = "$host:$port"
-            endpoints.computeIfAbsent(address) {
-                Endpoint(host, port, dispatcher, config.endpointConfig, connectionFactory)
+            val endpoint = with(request.url) {
+                val address = "$host:$port"
+                endpoints.computeIfAbsent(address) {
+                    Endpoint(host, port, dispatcher, config.endpointConfig, connectionFactory) {
+                        endpoints.remove(address)
+                    }
+                }
+
             }
-        }
 
-        return try {
-            endpoint.execute(request, content)
-        } catch (cause: ClosedChannelException) {
-            throw ClientClosedException(cause)
-        } finally {
-            if (closed.get()) {
-                endpoint.close()
+            try {
+                return endpoint.execute(request, content)
+            } catch (cause: ClosedChannelException) {
+                if (closed.get()) throw ClientClosedException(cause)
+                continue
+            } finally {
+                if (closed.get()) endpoint.close()
             }
         }
     }
