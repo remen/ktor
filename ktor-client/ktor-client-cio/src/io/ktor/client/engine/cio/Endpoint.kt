@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.*
 internal class Endpoint(
         host: String,
         port: Int,
+        private val secure: Boolean,
         private val dispatcher: CoroutineDispatcher,
         private val endpointConfig: EndpointConfig,
         private val connectionFactory: ConnectionFactory,
@@ -68,7 +69,7 @@ internal class Endpoint(
 
     private suspend fun newConnection() {
         Connections.incrementAndGet(this)
-        val socket = connectionFactory.connect(address)
+        val socket = connectionFactory.connect(address, secure)
         val pipeline = ConnectionPipeline(dispatcher, endpointConfig.keepAliveTime, endpointConfig.pipelineMaxSize, socket, deliveryPoint)
 
         pipeline.pipelineContext.invokeOnCompletion {
