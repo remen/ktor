@@ -96,6 +96,8 @@ internal fun ByteReadPacket.encrypted(cipher: Cipher, recordIv: Long): ByteReadP
                 if (rc == -1) break
                 buffer.flip()
 
+                if (!buffer.hasRemaining() && isEmpty) break
+
                 encrypted.clear()
                 cipher.update(buffer, encrypted)
                 encrypted.flip()
@@ -124,6 +126,8 @@ internal fun ByteReadPacket.decrypted(cipher: Cipher): ByteReadPacket {
                 val rc = if (buffer.hasRemaining()) readAvailable(buffer) else 0
                 if (rc == -1) break
                 buffer.flip()
+
+                if (!buffer.hasRemaining() && isEmpty) break
 
                 decrypted.clear()
 

@@ -333,7 +333,7 @@ internal class TLSClientSession(val input: ByteReadChannel, val output: ByteWrit
 
         val buffer = DefaultByteBufferPool.borrow()
         try {
-            while (true) {
+            while (!p.isEmpty) {
                 val rc = p.readAvailable(buffer)
                 if (rc == -1) break
                 buffer.flip()
