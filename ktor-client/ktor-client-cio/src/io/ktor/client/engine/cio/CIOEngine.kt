@@ -5,6 +5,7 @@ import io.ktor.client.engine.*
 import io.ktor.client.request.*
 import io.ktor.client.utils.*
 import io.ktor.content.*
+import kotlinx.coroutines.experimental.channels.*
 import java.nio.channels.*
 import java.util.concurrent.*
 import java.util.concurrent.atomic.*
@@ -34,7 +35,7 @@ class CIOEngine(private val config: CIOEngineConfig) : HttpClientEngine {
 
             try {
                 return endpoint.execute(request, content)
-            } catch (cause: ClosedChannelException) {
+            } catch (cause: ClosedSendChannelException) {
                 if (closed.get()) throw ClientClosedException(cause)
                 continue
             } finally {

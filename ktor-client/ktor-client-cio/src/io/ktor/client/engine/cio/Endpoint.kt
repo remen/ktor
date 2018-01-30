@@ -54,6 +54,7 @@ internal class Endpoint(
 
                 deliveryPoint.send(task)
             }
+        } catch (_: ClosedReceiveChannelException) {
         } finally {
             deliveryPoint.close()
         }
