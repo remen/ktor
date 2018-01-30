@@ -62,17 +62,12 @@ internal class TLSClientSession(
             when (header.type) {
                 TLSRecordType.Handshake -> {
                     packet.readTLSHandshake(handshakeHeader)
-                    val hs = if (hashing && handshakeHeader.type != TLSHandshakeType.HelloRequest) {
+                    if (hashing && handshakeHeader.type != TLSHandshakeType.HelloRequest) {
                         packetForHashing.writeTLSHandshake(handshakeHeader)
-                        val (p, copy) = packet.duplicate()
-                        packetForHashing.writePacket(copy)
-                        copy.release()
-                        p
-                    } else {
-                        packet
+                        if (!packet.isEmpty) packetForHashing.writePacket(packet.copy())
                     }
 
-                    handshake(hs)
+                    handshake(packet)
                 }
                 TLSRecordType.ChangeCipherSpec -> {
                     if (header.length != 1) throw TLSException("ChangeCipherSpec should contain just one byte but there are ${header.length}")
@@ -231,15 +226,15 @@ internal class TLSClientSession(
                 preSecret[0] = 0x03
                 preSecret[1] = 0x03 // TLS 1.2
 
-                val (e, copy) = clientKeyExchange(random, handshakeHeader, serverKey!!, preSecret).duplicate()
-                packetForHashing.writePacket(copy)
+                val secretHandshake = clientKeyExchange(random, handshakeHeader, serverKey!!, preSecret)
+                packetForHashing.writePacket(secretHandshake.copy())
 
                 header.type = TLSRecordType.Handshake
-                header.length = e.remaining
+                header.length = secretHandshake.remaining
                 output.writePacket {
                     writeTLSHeader(header)
                 }
-                output.writePacket(e)
+                output.writePacket(secretHandshake)
 
                 output.writePacket {
                     writeChangeCipherSpec(header)
@@ -278,8 +273,7 @@ internal class TLSClientSession(
     }
 
     private fun findTrustManager(): X509TrustManager {
-        val tmf = TrustManagerFactory.getInstance(
-                TrustManagerFactory.getDefaultAlgorithm())
+        val tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
         tmf.init(null as KeyStore?)
         val tm = tmf.trustManagers
 

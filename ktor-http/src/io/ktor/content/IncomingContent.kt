@@ -19,5 +19,5 @@ suspend fun IncomingContent.readText(
         charset: Charset? = null
 ): String {
     val length = headers[HttpHeaders.ContentLength]?.toInt() ?: 1
-    return readChannel().toByteArray(length, pool).toString(charset ?: charset() ?: Charsets.ISO_8859_1)
+    return readChannel().toByteArray(length, pool).toString(charset() ?: charset ?: Charsets.ISO_8859_1)
 }
